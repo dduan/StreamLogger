@@ -8,7 +8,7 @@ Streamers use this to summarize segements of their stream while streaming. It wo
 
 1. Stream starts. Streamer tell StreamLogger to start a new log (`slog start`).
 2. Stream do stuff on stream. When stuff it done, they summarize the stuff in StreamLogger. Move on to next
-   struff in their stream (`slog SUMMARY`).
+   struff in their stream (`slog -- SUMMARY`).
 3. The log can be used to generate timestamps for the stream archive video. It is assumed that the start time
    of the stream and the creation time of the log is diferent. User can look in the video archive to see how
    much time has passed between the video and the time they started the log. Then, user can tell StreamLogger
