@@ -1,8 +1,9 @@
 use chrono::{Utc};
+use clap::Clap;
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::path::PathBuf;
 use std::io::{Result, Error, ErrorKind, Write};
+use std::path::PathBuf;
 
 fn log_location() -> PathBuf {
     if cfg!(target_os = "macos") {
@@ -64,36 +65,83 @@ fn find_latest_log() -> Option<PathBuf> {
     })
 }
 
-fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+#[derive(Clap)]
+#[clap(author, about, version)]
+struct StreamLogger {
+    log: Option<String>,
+    #[clap(subcommand)]
+    subcommand: Option<SubCommand>
+}
 
-    if args.len() < 2 {
-        println!("USAGE: {} LOG_MESSAGE", args[0]);
-        return Ok(())
+impl StreamLogger {
+    fn run(&self) -> Result<()> {
+        match &self.log {
+            None => {
+                eprintln!("Provide a log message.");
+                return Err(Error::new(ErrorKind::Other, "missing log message"));
+            },
+            Some(log_msg) => {
+                if let Some(log_path) = find_latest_log() {
+                    if let Ok(mut log) = OpenOptions::new()
+                        .append(true)
+                        .open(log_path)
+                    {
+                        return write!(log, "{}\n{},", log_msg, Utc::now().timestamp());
+                    }
+                }
+                return Err(Error::new(ErrorKind::Other, "could not log message"));
+            },
+        }
     }
+}
 
-    let log_msg = &args[1];
+#[derive(Clap)]
+enum SubCommand {
+    Start,
+    Stamp(Stamp),
+}
 
-    if log_msg == "start" {
+#[derive(Clap)]
+struct Stamp {
+    #[clap(short, long)]
+    shift: Option<String>,
+    #[clap(short, long)]
+    log: Option<String>,
+}
+
+impl Stamp {
+    fn run(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+struct Start {}
+impl Start {
+    fn run() -> Result<()> {
         match start_new_log() {
             Err(err) => {
-                return Err(err);
+                Err(err)
             },
             Ok(path) => {
                 println!("Created stream log at {}", path);
-                return Ok(());
+                Ok(())
             }
         }
-    } else {
-        if let Some(log_path) = find_latest_log() {
-            if let Ok(mut log) = OpenOptions::new()
-                .append(true)
-                .open(log_path)
-            {
-                return write!(log, "{}\n{},", args[1], Utc::now().timestamp());
-            }
-        }
+    }
+}
 
-        return Err(Error::new(ErrorKind::Other, "could not log message"));
+fn main() -> Result<()> {
+    let logger: StreamLogger = StreamLogger::parse();
+
+    match logger.subcommand {
+        Some(SubCommand::Start) => {
+            Start::run()
+        },
+        Some(SubCommand::Stamp(stamp)) => {
+            stamp.run()
+        },
+        None => {
+            logger.run()
+        },
     }
 }
