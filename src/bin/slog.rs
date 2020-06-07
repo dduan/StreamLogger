@@ -14,6 +14,14 @@ fn log_location() -> PathBuf {
             .or(env::var("TEMP"))
             .unwrap_or(".".to_string());
         [&home, "StreamLogger"].iter().collect()
+    } else if cfg!(target_os = "linux") {
+        env::var("XDG_DATA_HOME")
+            .map(|s| PathBuf::from(s))
+            .ok()
+            .unwrap_or({
+                let home = env::var("HOME").unwrap_or("/tmp".to_string());
+                [&home, ".local", "share", "StreamLogger"].iter().collect()
+            })
     } else {
         PathBuf::from(".")
     }
