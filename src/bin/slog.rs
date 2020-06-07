@@ -229,7 +229,6 @@ mod test {
     fn shift_to_secs_parsing_secs_only() {
         let cmd = Stamp {
             shift: Some("44".to_string()),
-            log: None,
         };
 
         assert_eq!(cmd.shift_in_secs(), Some(44));
@@ -239,7 +238,6 @@ mod test {
     fn shift_to_secs_parsing_mins_secs() {
         let cmd = Stamp {
             shift: Some("02:44".to_string()),
-            log: None,
         };
 
         assert_eq!(cmd.shift_in_secs(), Some(164));
@@ -249,7 +247,6 @@ mod test {
     fn shift_to_secs_parsing_hrs_mins_secs() {
         let cmd = Stamp {
             shift: Some("01:02:44".to_string()),
-            log: None,
         };
 
         assert_eq!(cmd.shift_in_secs(), Some(3764));
