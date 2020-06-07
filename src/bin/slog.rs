@@ -9,6 +9,11 @@ fn log_location() -> PathBuf {
     if cfg!(target_os = "macos") {
         let home = env::var("HOME").unwrap_or("/tmp".to_string());
         [&home, "Library", "Application Support", "StreamLogger"].iter().collect()
+    } else if cfg!(target_os = "windows") {
+        let home = env::var("LOCALAPPDATA")
+            .or(env::var("TEMP"))
+            .unwrap_or(".".to_string());
+        [&home, "StreamLogger"].iter().collect()
     } else {
         PathBuf::from(".")
     }
