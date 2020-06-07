@@ -1,4 +1,4 @@
-use chrono::{Utc};
+use chrono::{Utc, Duration};
 use clap::Clap;
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -66,8 +66,9 @@ fn find_latest_log() -> Option<PathBuf> {
 }
 
 #[derive(Clap)]
-#[clap(author, about, version)]
+#[clap(name = "slog", author, about, version)]
 struct StreamLogger {
+    /// The content of the log.
     log: Option<String>,
     #[clap(subcommand)]
     subcommand: Option<SubCommand>
@@ -97,21 +98,95 @@ impl StreamLogger {
 
 #[derive(Clap)]
 enum SubCommand {
+    /// Start logging for a new stream.
     Start,
+    /// Print out timestamp for a stream archive.
     Stamp(Stamp),
 }
 
 #[derive(Clap)]
 struct Stamp {
+    /// Shift the timestamps in log forward by this much. It should be in the format "HH:MM:SS".
+    /// Hours and minutes can be skipped if not applicable.
     #[clap(short, long)]
     shift: Option<String>,
-    #[clap(short, long)]
-    log: Option<String>,
+//    #[clap(short, long)]
+//    log: Option<String>,
 }
 
+
 impl Stamp {
+    /// Take "HH:MM:SS" string and turn it into seconds.
+    /// "SS" and "MM:SS" can be valid input as well and will be interpreted as such.
+    fn shift_in_secs(&self) -> Option<i64> {
+        let segs: Vec<&str> = self.shift.as_ref()?.split(":").collect();
+        match segs.len() {
+            1 => segs[0].parse::<i64>().ok(),
+            2 => {
+                if let Ok(m) = segs[0].parse::<i64>() {
+                    if let Ok(s) = segs[1].parse::<i64>() {
+                        return Some(m * 60 + s);
+                    }
+                }
+
+                None
+
+            },
+            3 => {
+                if let Ok(h) = segs[0].parse::<i64>() {
+                    if let Ok(m) = segs[1].parse::<i64>() {
+                        if let Ok(s) = segs[2].parse::<i64>() {
+                            return Some(h * 3600 + m * 60 + s);
+                        }
+                    }
+                }
+
+                None
+            },
+            _ => None,
+        }
+
+    }
+
     fn run(&self) -> Result<()> {
-        Ok(())
+        let shift = self.shift_in_secs().unwrap_or(0);
+        if let Some(log_path) = find_latest_log() {
+            let bytes = fs::read(log_path)?;
+            let all_log = String::from_utf8_lossy(&bytes);
+            let mut first_timestamp: Option<i64> = None;
+            for line in all_log.lines() {
+                let mut segs = line.split(',');
+                if let Some(time) = segs.next() {
+                    if let Ok(timestamp) = time.parse::<i64>() {
+                        let reference_timestamp: i64;
+                        match first_timestamp {
+                            None => {
+                                reference_timestamp = timestamp;
+                                first_timestamp = Some(timestamp);
+                            },
+                            Some(first) => {
+                                reference_timestamp = first;
+                            },
+                        }
+
+                        if let Some(log) = segs.next() {
+                            let duration = Duration::seconds(timestamp - reference_timestamp + shift);
+                            println!(
+                                "{}:{:02}:{:02} {}",
+                                duration.num_hours(),
+                                duration.num_minutes() % 60,
+                                duration.num_seconds() % 60,
+                                log
+                            );
+                        }
+                    }
+                }
+            }
+
+            return Ok(());
+        }
+
+        return Err(Error::new(ErrorKind::Other, "could not log message"));
     }
 }
 
@@ -143,5 +218,40 @@ fn main() -> Result<()> {
         None => {
             logger.run()
         },
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Stamp};
+
+    #[test]
+    fn shift_to_secs_parsing_secs_only() {
+        let cmd = Stamp {
+            shift: Some("44".to_string()),
+            log: None,
+        };
+
+        assert_eq!(cmd.shift_in_secs(), Some(44));
+    }
+
+    #[test]
+    fn shift_to_secs_parsing_mins_secs() {
+        let cmd = Stamp {
+            shift: Some("02:44".to_string()),
+            log: None,
+        };
+
+        assert_eq!(cmd.shift_in_secs(), Some(164));
+    }
+
+    #[test]
+    fn shift_to_secs_parsing_hrs_mins_secs() {
+        let cmd = Stamp {
+            shift: Some("01:02:44".to_string()),
+            log: None,
+        };
+
+        assert_eq!(cmd.shift_in_secs(), Some(3764));
     }
 }
