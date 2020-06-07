@@ -1,5 +1,5 @@
 [package]
-name = "stream_logger"
+name = "slog"
 version = "0.1.0"
 authors = ["Daniel Duan <daniel@duan.ca>"]
 edition = "2018"
