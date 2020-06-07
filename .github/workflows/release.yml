@@ -162,7 +162,7 @@ jobs:
           "$PWD/target:/target:Z" \
           rustembedded/cross:arm-unknown-linux-gnueabihf \
           arm-linux-gnueabihf-strip \
-          /target/arm-unknown-linux-gnueabihf/release/rg
+          /target/arm-unknown-linux-gnueabihf/release/slog
 
     - name: Build archive
       shell: bash
